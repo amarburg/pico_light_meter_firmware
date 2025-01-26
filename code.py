@@ -27,6 +27,40 @@ import supervisor
 from adafruit_display_text import label
 import adafruit_displayio_sh1107
 
+POS_SHUTTER_SPEEDS = [
+    1, 2 ,4 ,8, 15, 30, 60, 125, 250, 500, 1000
+]
+NEG_SHUTTER_SPEEDS = [
+    1, "2s", "4s", "8s", "15s", "30s", "60s", "2m", "4m", "8m"
+]
+
+APERTURE_EV = ["1.0", "1.4", "2.0", "2.8", "4.0", "5.6", "8.0", "11", "16", "22", "32"]
+
+def ev_to_shutter_speed( ev ):
+
+    rev = round(abs(ev))
+
+    if rev == 0:
+        return "1"
+    elif ev > 0:
+        if rev >= len(POS_SHUTTER_SPEEDS):
+            return "MIN"
+        else:
+            return f"1/{POS_SHUTTER_SPEEDS[rev]}"
+
+    else:
+        if rev >= len(NEG_SHUTTER_SPEEDS):
+            return "LONG"
+        else:
+            return NEG_SHUTTER_SPEEDS[rev]
+
+    if ev >= 0:
+        return f"1/{ss}"
+    else:
+        return f"{ss}s"
+
+
+
 displayio.release_displays()
 # oled_reset = board.D9
 
@@ -117,7 +151,7 @@ display.root_group = splash
 # Draw some label text
 y_offset = 8
 x_offset = 4
-dy = 24
+dy = 12
 
 dummy_text = "0123456789ABCDEFG"  # overly long to see where it clips
 
@@ -134,20 +168,36 @@ line3 = label.Label(
 )
 splash.append(line3)
 
-count = 0
+line4 = label.Label(
+    terminalio.FONT, text=dummy_text, scale=1, color=0xFFFFFF, x=x_offset, y=y_offset+3*dy
+)
+splash.append(line4)
 
-iso = 400
+line5 = label.Label(
+    terminalio.FONT, text=dummy_text, scale=1, color=0xFFFFFF, x=x_offset, y=y_offset+4*dy
+)
+splash.append(line5)
+
+
+iso_ev = 0
 
 while True:
 
+    #lux = veml7700.lux
     lux = bh1750.lux
     ev = math.log(lux * 0.4)
 
-    lux2 = veml7700.lux
+    aperture_ev = 0
 
-    line1.text = f"f/{count}"
-    line2.text = f"L: {lux:.2f}"
-    line3.text = f"L: {lux2:.2f}"
+    shutter_ev = ev + aperture_ev - iso_ev
+
+    line1.text = f"iso: {100* 2**iso_ev}"
+    line2.text = f"     f/{APERTURE_EV[aperture_ev]}"
+    line3.text = f"ss:  {ev_to_shutter_speed(shutter_ev)}"
+
+    line4.text = ""
+    line5.text = f"ev:  {shutter_ev:.2f}"
+
 
     time.sleep(0.5)   
 
