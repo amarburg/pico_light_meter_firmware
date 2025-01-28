@@ -17,6 +17,7 @@ from displayio import I2CDisplay as I2CDisplayBus
 import terminalio
 import time
 import math
+import sys
 
 import adafruit_ov5640
 import adafruit_veml7700
@@ -95,9 +96,22 @@ cam = adafruit_ov5640.OV5640(
     mclk=None,
     shutdown=None,
     reset=reset,
-    size=adafruit_ov5640.OV5640_SIZE_240X240,
+    size=adafruit_ov5640.OV5640_SIZE_QVGA, #320x240
 )
 print(f"chip id: {cam.chip_id}")
+
+cam.colorspace = adafruit_ov5640.OV5640_COLOR_RGB
+cam.flip_y = False
+cam.flip_x = False
+cam.test_pattern = False
+
+
+buf = bytearray(cam.capture_buffer_size)
+chars = b" .':-+=*%$#"
+remap = [chars[i * (len(chars) - 1) // 255] for i in range(256)]
+
+width = cam.width
+row = bytearray(width)
 
 veml7700 = adafruit_veml7700.VEML7700(cam_i2c)
 bh1750 = adafruit_bh1750.BH1750(cam_i2c)
@@ -105,7 +119,7 @@ bh1750 = adafruit_bh1750.BH1750(cam_i2c)
 
 # Set up I2C1 for display
 print("Initializing display")
-display_i2c = busio.I2C(board.GP19, board.GP18)
+display_i2c = busio.I2C(board.GP27, board.GP26)
 display_bus = I2CDisplayBus(display_i2c, device_address=0x3C)
 
 # SH1107 is vertically oriented 64x128
@@ -182,6 +196,16 @@ splash.append(line5)
 iso_ev = 0
 
 while True:
+
+    cam.capture(buf)
+
+    for j in range(0, cam.height, 2):
+        sys.stdout.write(f"\033[{j//2}H")
+        for i in range(cam.width):
+            row[i] = remap[buf[2 * (width * j + i)]]
+        sys.stdout.write(row)
+        sys.stdout.write("\033[K")
+    sys.stdout.write("\033[J")
 
     #lux = veml7700.lux
     lux = bh1750.lux
