@@ -19,6 +19,7 @@ import time
 import math
 import sys
 
+# Sensors connected via Stemma
 import adafruit_ov5640
 import adafruit_veml7700
 import adafruit_bh1750
@@ -26,7 +27,9 @@ import supervisor
 
 # can try import bitmap_label below for alternative
 from adafruit_display_text import label
-import adafruit_displayio_sh1107
+from adafruit_displayio_sh1107 import SH1107
+from fourwire import FourWire
+from adafruit_st7789 import ST7789
 
 POS_SHUTTER_SPEEDS = [
     1, 2 ,4 ,8, 15, 30, 60, 125, 250, 500, 1000
@@ -59,7 +62,6 @@ def ev_to_shutter_speed( ev ):
         return f"1/{ss}"
     else:
         return f"{ss}s"
-
 
 
 displayio.release_displays()
@@ -116,22 +118,33 @@ row = bytearray(width)
 veml7700 = adafruit_veml7700.VEML7700(cam_i2c)
 bh1750 = adafruit_bh1750.BH1750(cam_i2c)
 
+# Set up IPS display
+spi = busio.SPI(board.GP18, MOSI=board.GP19, MISO=None)
+tft_cs = board.GP21
+tft_dc = board.GP20
+tft_display_bus = FourWire(spi, command=tft_dc, chip_select=tft_cs)
+display = ST7789(tft_display_bus, height=320, width=240 )
+display.root_group = None
 
 # Set up I2C1 for display
 print("Initializing display")
-display_i2c = busio.I2C(board.GP27, board.GP26)
-display_bus = I2CDisplayBus(display_i2c, device_address=0x3C)
+oled_display_i2c = busio.I2C(board.GP27, board.GP26)
+oled_display_bus = I2CDisplayBus(oled_display_i2c, device_address=0x3C)
 
 # SH1107 is vertically oriented 64x128
 WIDTH = 128
 HEIGHT = 64
 BORDER = 2
 
-display = adafruit_displayio_sh1107.SH1107(display_bus, width=WIDTH, height=HEIGHT)
+oled_display = SH1107(oled_display_bus, width=WIDTH, height=HEIGHT)
+oled_display.root_group = None
+
+
+
 
 # Make the display context
 splash = displayio.Group()
-display.root_group = splash
+oled_display.root_group = splash
 
 # color_bitmap = displayio.Bitmap(WIDTH, HEIGHT, 1)
 # color_palette = displayio.Palette(1)
@@ -192,24 +205,26 @@ line5 = label.Label(
 )
 splash.append(line5)
 
-
 iso_ev = 0
 
 while True:
 
     cam.capture(buf)
 
-    for j in range(0, cam.height, 2):
-        sys.stdout.write(f"\033[{j//2}H")
-        for i in range(cam.width):
-            row[i] = remap[buf[2 * (width * j + i)]]
-        sys.stdout.write(row)
-        sys.stdout.write("\033[K")
-    sys.stdout.write("\033[J")
+    # for j in range(0, cam.height, 2):
+    #     sys.stdout.write(f"\033[{j//2}H")
+    #     for i in range(cam.width):
+    #         row[i] = remap[buf[2 * (width * j + i)]]
+    #     sys.stdout.write(row)
+    #     sys.stdout.write("\033[K")
+    # sys.stdout.write("\033[J")
 
     #lux = veml7700.lux
     lux = bh1750.lux
-    ev = math.log(lux * 0.4)
+    if lux > 0:
+        ev = math.log(lux * 0.4)
+    else:
+        ev = 0
 
     aperture_ev = 0
 
