@@ -38,11 +38,11 @@ print(f"Run reason: {supervisor.runtime.run_reason}")
 
 # Use the board's primary SPI bus
 spi = busio.SPI(board.GP18, MOSI=board.GP19, MISO=board.GP16)
-tft = TftDisplay(spi, adafruit_ov5640.OV5640_SIZE_QVGA)
 
-# And SD card
+# Initialize SD card first
 sdcard = SdCard(spi)
 
+tft = TftDisplay(spi, adafruit_ov5640.OV5640_SIZE_QVGA)
 
 #== Connect to camera
 
@@ -55,6 +55,13 @@ bh1750 = adafruit_bh1750.BH1750(sensor_i2c)
 # Configure MCP23008
 i2c1 = busio.I2C(board.GP27, board.GP26)
 mcp = MCP23008(i2c1)
+
+# 3 is backlight
+p = mcp.get_pin(3)
+p.direction = digitalio.Direction.OUTPUT
+p.value = False
+time.sleep(0.5)
+p.value = True
 
 # All on OLED
 # 4 == SW3
@@ -100,7 +107,6 @@ while True:
     # for pin_num in [4,5,6,7]:
     #     p = mcp.get_pin(pin_num)
     #     print(f"Pin {pin_num}: {p.value}")
-
 
     time.sleep(0.5)   
 
